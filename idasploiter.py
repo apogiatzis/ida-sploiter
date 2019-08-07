@@ -2587,34 +2587,47 @@ class SploitManager():
 
     ###########################################################################
     # Menu Items
-    def add_menu_item_helper(self, menupath, name, hotkey, flags, pyfunc, args):
+    def add_menu_item_helper(self, action_id, menupath, name, hotkey, pyfunc, args):
 
-        # add menu item and report on errors
-        addmenu_item_ctx = idaapi.add_menu_item(menupath, name, hotkey, flags, pyfunc, args)
-        if addmenu_item_ctx is None:
-            return 1
-        else:
-            self.addmenu_item_ctxs.append(addmenu_item_ctx)
-            return 0
+        class ActionHandler(idaapi.action_handler_t):
+            def __init__(self):
+                idaapi.action_handler_t.__init__(self)
+            
+            def activate(self, ctx):
+                pyfunc()
+                return 1
+            
+            def update(self, ctx):
+                return idaapi.AST_ENABLE_ALWAYS
+        
+        action_desc = idaapi.action_desc_t(action_id, name, ActionHandler(), hotkey, name)
+        
+        # Register the action
+        idaapi.register_action(action_desc)
+
+        idaapi.attach_action_to_menu(menupath, action_id, idaapi.SETMENU_APP)
+        return 0
 
     def add_menu_items(self):
-        if self.add_menu_item_helper("View/Open subviews/Segments", "Modules", "Shift+F6", 0, self.show_modules_view, None): return 1
+        if self.add_menu_item_helper("action:show_modules", "View/Open subviews/Segments", "Modules", "Shift+F6", self.show_modules_view, None): return 1
 
         # Check if this feature is supported or not.
         if self.sploiter.is_func_ptr_supported():
-            if self.add_menu_item_helper("Search/all error operands", "function pointers...", "Alt+f", 1, self.show_funcptr_view, None): return 1
+            if self.add_menu_item_helper("action:function_pointers", "Search/all error operands", "function pointers...", "Alt+f", self.show_funcptr_view, None): return 1
 
-        if self.add_menu_item_helper("Search/all error operands", "gadgets...", "Alt+r", 1, self.show_rop_view, None): return 1
+        if self.add_menu_item_helper("action:gadgets", "Search/all error operands", "gadgets...", "Alt+r", self.show_rop_view, None): return 1
 
-        if self.add_menu_item_helper("Edit/Begin selection", "Create pattern...", "Shift+c", 0, self.show_pattern_create, None): return 1
-        if self.add_menu_item_helper("Edit/Begin selection", "Detect pattern...", "Shift+d", 0, self.show_pattern_detect, None): return 1
-        if self.add_menu_item_helper("Edit/Begin selection", "Compare file to memory...", "Shift+f", 0, self.show_compare, None): return 1
+        if self.add_menu_item_helper("action:create_pattern", "Edit/Begin selection", "Create pattern...", "Shift+c", self.show_pattern_create, None): return 1
+        if self.add_menu_item_helper("action:detect_pattern", "Edit/Begin selection", "Detect pattern...", "Shift+d", self.show_pattern_detect, None): return 1
+        if self.add_menu_item_helper("action:compare_file_to_memory", "Edit/Begin selection", "Compare file to memory...", "Shift+f", self.show_compare, None): return 1
         
         return 0
 
     def del_menu_items(self):
+        
         for addmenu_item_ctx in self.addmenu_item_ctxs:
-            result = idaapi.del_menu_item(addmenu_item_ctx)
+            # result = idaapi.del_menu_item(addmenu_item_ctx)
+            pass
 
     ###########################################################################
     # Utility Functions
